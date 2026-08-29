@@ -1,31 +1,12 @@
-"""
-Resume Scanner - Local Web Application
-----------------------------------------
-A tiny web app that analyzes resume text and returns a heuristic score,
-statistics, section detection, keyword matches, and improvement suggestions.
 
-Built ONLY with the Python standard library (http.server) plus plain
-HTML/CSS/JS on the frontend. No Flask, Django, or third-party packages.
-
-Run it with:
-    python server.py
-
-Then open:
-    http://localhost:8000
-"""
 
 import json
 import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ---------------------------------------------------------------------------
-# Configuration / reference data used by the analysis engine
-# ---------------------------------------------------------------------------
-
 PORT = 8000
 
-# Resume sections we look for. The "aliases" are alternate headings that
-# should count as the same section (e.g. "Work Experience" -> "Experience").
+
 SECTION_ALIASES = {
     "Summary": ["summary", "professional summary", "profile"],
     "Objective": ["objective", "career objective"],

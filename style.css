@@ -1,25 +1,3 @@
-/* =================================================================
-   RESUME SCANNER — design system
-   -----------------------------------------------------------------
-   Direction: a static-analysis / diagnostic tool for resumes, styled
-   like the developer tools it borrows its vocabulary from (linters,
-   CI dashboards, code editors). Signature moment: an amber "scan
-   beam" that sweeps the input pane while a scan is running, and a
-   scanner-dial gauge (radial, tick-marked) for the score readout.
-
-   Palette
-     --bg / --bg-alt   graphite-navy backdrop (not pure black)
-     --surface/-2      card + inset surfaces
-     --line            hairline borders
-     --ink / --ink-dim text
-     --beam            amber — the signature accent (scan beam, warnings)
-     --teal            cool accent — "healthy / found" states
-     --danger          muted red — "missing / weak" states
-
-   Type
-     Sans (system UI stack)      — headings, body copy
-     Mono (system monospace)     — labels, stats, eyebrows, code-ish UI
-   ================================================================= */
 
 :root {
   --bg: #0c0f14;
