@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume Scanner</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span class="brand-name">Resume Scanner</span>
+      </div>
+      <p class="brand-tagline">Instant heuristic feedback on your resume</p>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- ============ INPUT CARD ============ -->
+    <section class="card input-card">
+      <h2 class="card-title">1. Add your resume</h2>
+      <p class="card-subtitle">Paste your resume text below, or upload a .txt file.</p>
+
+      <textarea
+        id="resumeText"
+        placeholder="Paste your resume text here..."
+        spellcheck="false"
+      ></textarea>
+
+      <div class="input-row">
+        <label class="file-upload">
+          <input type="file" id="fileInput" accept=".txt">
+          <span>📄 Upload .txt file</span>
+        </label>
+        <span id="fileName" class="file-name"></span>
+      </div>
+
+      <button id="scanBtn" class="scan-btn">SCAN RESUME</button>
+      <p id="errorMsg" class="error-msg"></p>
+    </section>
+
+    <!-- ============ RESULTS (hidden until a scan runs) ============ -->
+    <section id="results" class="results hidden">
+
+      <div class="results-grid">
+
+        <!-- Score card -->
+        <div class="card score-card">
+          <h3 class="card-title">Resume Score</h3>
+          <div class="score-circle-wrap">
+            <svg class="score-ring" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+              <circle id="ringProgress" class="ring-progress" cx="60" cy="60" r="52"></circle>
+            </svg>
+            <div class="score-number" id="scoreNumber">0</div>
+          </div>
+          <p class="score-caption">out of 100</p>
+          <p class="score-disclaimer">Basic heuristic score — not an AI hiring prediction.</p>
+        </div>
+
+        <!-- Statistics card -->
+        <div class="card">
+          <h3 class="card-title">Statistics</h3>
+          <div class="stat-grid" id="statGrid"></div>
+        </div>
+
+      </div>
+
+      <div class="results-grid">
+
+        <!-- Sections card -->
+        <div class="card">
+          <h3 class="card-title">Sections</h3>
+          <ul class="section-list" id="sectionList"></ul>
+        </div>
+
+        <!-- Keywords card -->
+        <div class="card">
+          <h3 class="card-title">Keywords Detected</h3>
+          <div class="tag-list" id="keywordList"></div>
+        </div>
+
+      </div>
+
+      <!-- Suggestions card -->
+      <div class="card">
+        <h3 class="card-title">Suggestions</h3>
+        <ul class="suggestion-list" id="suggestionList"></ul>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Resume Scanner &middot; Runs 100% locally &middot; Python standard library only</p>
+  </footer>
+
+<script>
+  const resumeText = document.getElementById('resumeText');
+  const fileInput = document.getElementById('fileInput');
+  const fileName = document.getElementById('fileName');
+  const scanBtn = document.getElementById('scanBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const results = document.getElementById('results');
+
+  // Load an uploaded .txt file straight into the textarea.
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileName.textContent = file.name;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      resumeText.value = e.target.result;
+    };
+    reader.readAsText(file);
+  });
+
+  scanBtn.addEventListener('click', async () => {
+    const text = resumeText.value.trim();
+    errorMsg.textContent = '';
+
+    if (!text) {
+      errorMsg.textContent = 'Please paste resume text or upload a .txt file first.';
+      return;
+    }
+
+    scanBtn.disabled = true;
+    scanBtn.textContent = 'SCANNING...';
+
+    try {
+      const response = await fetch('/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        errorMsg.textContent = data.error || 'Something went wrong.';
+        return;
+      }
+
+      renderResults(data);
+    } catch (err) {
+      errorMsg.textContent = 'Could not reach the server. Is server.py running?';
+    } finally {
+      scanBtn.disabled = false;
+      scanBtn.textContent = 'SCAN RESUME';
+    }
+  });
+
+  function renderResults(data) {
+    results.classList.remove('hidden');
+
+    // --- Score ---
+    const score = data.score;
+    document.getElementById('scoreNumber').textContent = score;
+    const ring = document.getElementById('ringProgress');
+    const circumference = 2 * Math.PI * 52;
+    const offset = circumference - (score / 100) * circumference;
+    ring.style.strokeDasharray = circumference;
+    ring.style.strokeDashoffset = offset;
+    ring.style.stroke = scoreColor(score);
+
+    // --- Statistics ---
+    const stats = data.stats;
+    const statItems = [
+      ['Words', stats.words],
+      ['Characters', stats.characters],
+      ['Sections found', stats.sections_found],
+      ['Bullet points', stats.bullets],
+      ['Emails found', stats.emails],
+      ['Phone numbers', stats.phones],
+      ['Skills detected', stats.skills_detected],
+      ['Action verbs', stats.action_verbs],
+    ];
+    const statGrid = document.getElementById('statGrid');
+    statGrid.innerHTML = statItems.map(([label, value]) => `
+      <div class="stat-item">
+        <div class="stat-value">${value}</div>
+        <div class="stat-label">${label}</div>
+      </div>
+    `).join('');
+
+    // --- Sections ---
+    const allSections = [...data.sections_found.map(s => [s, true]),
+                          ...data.sections_missing.map(s => [s, false])];
+    // Keep a stable, readable order.
+    const order = ["Summary","Objective","Contact","Education","Experience",
+                    "Projects","Skills","Certifications","Achievements"];
+    allSections.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+
+    const sectionList = document.getElementById('sectionList');
+    sectionList.innerHTML = allSections.map(([name, found]) => `
+      <li class="section-item ${found ? 'found' : 'missing'}">
+        <span class="section-icon">${found ? '✓' : '✗'}</span>
+        <span>${name}</span>
+      </li>
+    `).join('');
+
+    // --- Keywords ---
+    const keywordList = document.getElementById('keywordList');
+    if (data.keywords_found.length === 0) {
+      keywordList.innerHTML = '<p class="empty-note">No known keywords detected.</p>';
+    } else {
+      keywordList.innerHTML = data.keywords_found.map(k => `<span class="tag">${k}</span>`).join('');
+    }
+
+    // --- Suggestions ---
+    const suggestionList = document.getElementById('suggestionList');
+    suggestionList.innerHTML = data.suggestions.map(s => `<li>${s}</li>`).join('');
+
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function scoreColor(score) {
+    if (score >= 75) return '#4ade80';   // green
+    if (score >= 50) return '#facc15';   // yellow
+    return '#f87171';                    // red
+  }
+</script>
+
+</body>
+</html>
